@@ -1,0 +1,96 @@
+#!/bin/sh
+
+set -e
+
+prog=$(basename $0)
+wkdir=$HOME/wk
+srcdir=$HOME/src
+
+_new() {
+	if [ $# -lt 1 ]; then
+		_new_usage
+	fi
+
+	proj=$1;shift
+	srcs=$*
+	projdir=${wkdir}/${proj}
+
+        mkdir -p $projdir
+	cd $projdir
+
+	for src in $srcs; do
+		echo adding $src
+
+                dir=${srcdir}/${src}
+                if [ ! -d "$dir" ]; then
+                        echo 'unknown source'
+                        return
+                fi
+
+                cd $dir
+		git pull --all -p
+                git worktree add -b $proj $projdir/$src master
+        done
+}
+
+_new_usage() {
+	echo "usage: ${prog} new {proj} [sources...]"
+}
+
+_add() {
+	_new $*
+}
+
+_rm() {
+	proj=$1;shift
+	pd=${wkdir}/${proj}
+
+	cd $pd
+	srcs=$(ls)
+
+	for src in $srcs; do
+		cd ${pd}/${src}
+
+		git fetch --all -p
+		git rebase origin/master
+		rm -rf ${pd}/${src}
+
+		if [ -d "${srcdir}/${src}" ]; then
+			cd $srcdir/$src
+			git pull --all -p
+			git merge $proj
+			git worktree prune
+			git branch -d $proj
+		fi
+	done
+
+
+	if [ "$(pwd)" = "$pd" ]; then
+                cd $workdir
+        fi
+
+	rm -rf ${pd}
+
+}
+
+_usage() {
+	cmds='new add rm'
+	echo "usage: ${prog} {command} {proj} [sources...]"
+	echo 'commands:'
+	for c in $cmds; do
+		echo "\t${c}"
+	done
+	exit 1
+}
+
+if [ $# -lt 1 ]; then
+	_usage
+fi
+
+cmd=$1
+shift
+case $cmd in
+	add) _add $*;;
+	new) _new $*;;
+	rm) _rm $*;;
+esac
