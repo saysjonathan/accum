@@ -107,4 +107,5 @@ case $cmd in
 	add) _add $*;;
 	new) _new $*;;
 	rm) _rm $*;;
+	*) _usage $*;;
 esac
