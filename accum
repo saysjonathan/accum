@@ -5,6 +5,7 @@ set -e
 prog=$(basename $0)
 wkdir=$HOME/wk
 srcdir=$HOME/src
+proj=
 
 _new() {
 	if [ $# -lt 1 ]; then
@@ -45,20 +46,33 @@ _rm() {
 	proj=$1;shift
 	pd=${wkdir}/${proj}
 
-	cd $pd
-	srcs=$(ls)
+	srcs=$(ls $pd | sed '/env/d')
 
 	for src in $srcs; do
 		cd ${pd}/${src}
 
+		new_rev=$(git rev-parse HEAD)
+
+		echo rebasing $src
 		git fetch --all -p
 		git rebase origin/master
+
+		echo deleting $src
 		rm -rf ${pd}/${src}
 
 		if [ -d "${srcdir}/${src}" ]; then
 			cd $srcdir/$src
-			git pull --all -p
-			git merge $proj
+			src_rev=$(git rev-parse HEAD)
+
+			if [ ! "$new_rev" = "$src_rev" ]; then
+				echo updating $src
+				git pull --all -p
+
+				echo merging $proj
+				git merge $proj
+			fi
+
+			echo deleting $proj branch
 			git worktree prune
 			git branch -d $proj
 		fi
@@ -66,7 +80,7 @@ _rm() {
 
 
 	if [ "$(pwd)" = "$pd" ]; then
-                cd $workdir
+                cd $wkdir
         fi
 
 	rm -rf ${pd}
